@@ -22,7 +22,7 @@
 # TODO:
 #  - opportunity for adding web radio
 #  d viewing available stations
-#  - deletion of stations
+#  d deletion of stations
 #  d selection of stations
 
 import os
@@ -76,16 +76,64 @@ def play(url):
             return
 
 def listen(content):
+# argument content can be described as followed:
+# Type: List
+# Element 0: List of URLs
+# Element 1: Name of stream / URL if none is determinable
+# Element 2: Name of file from which these URLs are read
+
 #    print "listen(%s)" % (content)
-    if type(content) == type(str()):
-        play(content)
-    elif type(content) == type(list()):
-        for url in content:
+    if type(content[0]) == type(str()):
+        play(content[0])
+    elif type(content[0]) == type(list()):
+        for url in content[0]:
             play(url)
     else:
-        play(content)
+        play(content[0])
 
-def viewStations():
+def remove(content):
+# argument content can be described as followed:
+# Type: List
+# Element 0: List of URLs
+# Element 1: Name of stream / URL if none is determinable
+# Element 2: Name of file from which these URLs are read
+    infile = file(content[2])
+    lines = infile.read()
+    infile.close()
+    print "Searching in file for '%s'" % (content[0])
+    findidx = lines.find(content[0])
+    findidx_after = lines.find("http", findidx)
+    findidx_before = lines.find("http", 0, findidx-5)
+    if findidx_after == -1 and findidx_before == -1:
+        # since there are no other links to streams left, 
+        # it is safe to delete the whole file
+        try:
+            os.remove(content[2])
+        except os.OSError:
+            print "An error occured during attempt to remove desired station."
+    else:
+        # delete only link to stream
+        lines = lines.replace(content[0], "")
+
+        
+        # determine if a extinf tag has been parsed before
+        # if yes, content[1] contains the name of the station
+        # if no, content[1] contains the url like content[0]
+        if content[0] != content[1]:
+            # lets find and remove the corresponding extinf tag for this stream
+            # Note: Changes will be written to the playlist file immidiately
+            m3u_out_file = open(content[2], "w")
+            slines = lines.split("\n")
+            for idx in range(0, len(slines)-1):
+                if slines[idx].startswith("#EXTINF") and slines[idx].find(content[1]) != -1:
+                    slines[idx] = ""
+                    return
+                m3u_out_file.write(slines[idx]+"\n")
+            m3u_out_file.close()
+                
+              
+
+def viewStations(function):
     stations = os.listdir(stationsdir)
     stat_menuitems = list()
 
@@ -94,10 +142,17 @@ def viewStations():
                                  os.sep+
                                  stationsdir+
                                  os.sep+stations[z-1])
+    # stationdata is a list, which has these elements:
+    # Element 0  = Name/URL
+    # Element 1  = URL
+    # Element 2  = Input-File (needed for removing and editing)
         for streamdata in stationdata:
             stat_menuitems.append([ streamdata[0], 
-                                    listen, 
-                                    streamdata[1] ] )
+                                    function, 
+                                    [streamdata[1], 
+                                     streamdata[0], 
+                                     streamdata[2] ] 
+                                    ] )
     stat_menuitems.sort()
     stat_menuitems.append(["Back to Mainmenu", nulfunc ])
     menu(stat_menuitems, "Stations")
@@ -107,9 +162,6 @@ def addStation():
 
 def editStation():
     print "edit"
-
-def removeStation(): 
-    print "remove"
 
 def nulfunc():
     pass
@@ -155,9 +207,9 @@ def getStationData(infile):
 if __name__ == "__main__":
     print logo
     while(True):
-        items = [ [ "View stations", viewStations ],
+        items = [ [ "Start listening", viewStations, listen ],
                   [ "Add station", addStation],
                   [ "Edit station", editStation],
-                  [ "Remove station", removeStation ],
+                  [ "Remove station", viewStations, remove ],
                   [ "Exit", sys.exit, 0] ]
         menu(items, "Mainmenu")
