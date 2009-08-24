@@ -20,13 +20,17 @@
 
 
 # TODO:
-#  - opportunity for adding web radio
+#  d opportunity for adding web radio
+#    FIXED: By asking for names of streams, a stream on the first file
+#           of playlist file will be skipped
+#  - editing stations, which are already added
 #  d viewing available stations
 #  d deletion of stations
 #  d selection of stations
 
 import os
 import sys
+import urllib2
 
 version = 0.01
 
@@ -158,11 +162,88 @@ def viewStations(function):
     menu(stat_menuitems, "Stations")
 
 def addStation():
-    print "add"
+    # ask the user for url of the desired playlist file
+    print "Type URL of the playlist file, which you want to add:"
+    url = raw_input()
 
+    # get destination filename from url
+    url_spl = url.split("/")
+    dest_fn = url_spl[len(url_spl)-1]
+
+    # things to be asked:
+    # d destination filename (check if filename is unique)
+    # d name of station (make a guess using the first usable pls/m3u attribute)
+    # - give a short summary of data to be written
+    while True:
+        print "Which file name should the playlist file get(%s)?" % ( dest_fn )
+        usr_inp = raw_input()
+        if len(usr_inp) != 0:
+            dest_fn = usr_inp
+        try:
+            # check if file already exists
+            os.stat(stationsdir + os.sep + dest_fn)
+            print "Sorry, a file with this name is already existent."
+            print "Please choose another name."
+
+            # make a suggestion of a new and unique file name
+            # by incrementing the last digit, if there is one already
+            # (behavior like wget). For instance:
+            # test.file
+            # test.file.0
+            # test.file.1
+            # test.file.2
+            if dest_fn[len(dest_fn)-2] == "." and dest_fn[len(dest_fn)-1].isdigit():
+                # get digit and increment it by one
+                digit = int(dest_fn[len(dest_fn)-1]) + 1
+                # build new suggestion
+                dest_fn = dest_fn[:len(dest_fn)-1] + str(digit)
+            else:
+                dest_fn = dest_fn +".0"
+            
+        except OSError:
+            # if this code is executed, the file doesn't exist yet, so
+            # we can accept the users input
+            break;
+    # get playlist file using URL
+    req = urllib2.Request(url)
+    resp = urllib2.urlopen(req)
+
+    # prepare output file
+    outfile = open(stationsdir+os.sep+dest_fn, "w")
+    
+    pllstcontent_lines = resp.read().split("\n")
+    if pllstcontent_lines[0] = "#EXTM3U":
+        outfile.write("#EXTM3U\n")
+
+    for line_idx in range(0, len(pllstcontent_lines)-1):
+        if pllstcontent_lines[line_idx].startswith("http"):
+            # following conditions are ORed:
+            # line_idx == 0 -->> that means, first file of playlist file)
+            # (line_idx > 0 and not pllstcontent_lines[line_idx-1].sta...
+            # -->> at first, it is not the first line in a file
+            #      at second, the line before doesn't start with "#EXTINF"
+            try:
+                has_name = False
+                if pllstcontent_lines[line_idx-1].startswith("#EXTINF"):
+                    has_name = True
+                if not has_name:
+                    # since the current stream has no name, ask for it 
+                    print "Stream:'%s'" % ( pllstcontent_lines[line_idx] )
+                    print "How should this stream be called?"
+                    name = raw_input()
+                    extinf = "#EXTINF:-1,%s" % ( name )
+                    pllstcontent_lines[line_idx] = extinf + "\n" + pllstcontent_lines[line_idx]
+            except:
+                pass
+        print pllstcontent_lines[line_idx]
+        outfile.write(pllstcontent_lines[line_idx])
+    outfile.close()
+    
 def editStation():
     print "edit"
 
+# This is a function which does nothing. Do not alter this, since it is
+# intended to be void.
 def nulfunc():
     pass
 
