@@ -23,7 +23,7 @@
 #  d opportunity for adding web radio
 #    FIXED: By asking for names of streams, a stream on the first file
 #           of playlist file will be skipped
-#  - editing stations, which are already added
+#  d editing stations, which are already added
 #  d viewing available stations
 #  d deletion of stations
 #  d selection of stations
@@ -32,7 +32,7 @@ import os
 import sys
 import urllib2
 
-version = 0.01
+version = 0.02
 
 logo = """radioman version %s
 Copyright (C) 2009 Markus Zeindl <mrszndl@googlemail.com>
