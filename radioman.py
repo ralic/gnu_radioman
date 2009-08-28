@@ -158,7 +158,7 @@ def viewStations(function):
                                      streamdata[2] ] 
                                     ] )
     stat_menuitems.sort()
-    stat_menuitems.append(["Back to Mainmenu", nulfunc ])
+    stat_menuitems.append(["Return to mainmenu", nulfunc ])
     menu(stat_menuitems, "Stations")
 
 def addStation():
@@ -212,7 +212,7 @@ def addStation():
     outfile = open(stationsdir+os.sep+dest_fn, "w")
     
     pllstcontent_lines = resp.read().split("\n")
-    if pllstcontent_lines[0] = "#EXTM3U":
+    if pllstcontent_lines[0] == "#EXTM3U":
         outfile.write("#EXTM3U\n")
 
     for line_idx in range(0, len(pllstcontent_lines)-1):
@@ -236,10 +236,89 @@ def addStation():
             except:
                 pass
         print pllstcontent_lines[line_idx]
-        outfile.write(pllstcontent_lines[line_idx])
+        outfile.write(pllstcontent_lines[line_idx]+"\n")
     outfile.close()
     
-def editStation():
+def edit(content):
+    # argument content can be described as followed:
+    # Type: List
+    # Element 0: List of URLs
+    # Element 1: Name of stream / URL if none is determinable
+    # Element 2: Name of file from which these URLs are read
+
+    print "\n"
+    print "Information about selected stream"
+    print "---------------------------------"
+    print "URLs: %s" % (content[0])
+    if content[0] != content[1]:
+        print "Name: %s" % (content[1])
+    print "Playlist-file: %s" % (content[2])
+
+    print "\n\n"
+    options = [ 
+        [ "Change URL of stream" ],
+        [ "Change name of stream" ],
+        [ "Return to mainmenu", nulfunc], 
+        ]
+
+    # since this return value of menu() is zero-based, use 0 for first option
+    # and 1 for second and so on
+    ch = menu(options, "Edit stream")
+    if ch == 0:
+        print "New URL or nothing to abort."
+        n_url = raw_input()
+        if len(n_url) == 0:
+            return
+        # open file for reading complete content
+        strf = open(content[2])
+        filecontent = strf.read()
+        strf.close()
+
+        # change content
+        filecontent = filecontent.replace(content[0], n_url)
+
+        # write content back to file
+        strf = open(content[2], "w")
+        strf.write(filecontent)
+        strf.close()
+    elif ch == 1:
+        # user wants to edit name of stream
+        print "New Name or nothing to abort."
+        n_name = raw_input()
+        if len(n_name) == 0:
+            return
+        # open file for reading complete content
+        strf = open(content[2], "r")
+        # read filecontent and split it into lines
+        filecontent = strf.read().split("\n")
+        strf.close()
+
+        # search m3u-tag and add or replace name tag
+        for z in range(0, len(filecontent)-1):
+            if filecontent[z] == content[0]:
+                # check if a name is existent
+                if z > 0:
+                    if filecontent[z-1].startswith("#EXTINF"):
+                        # replace old name with new one
+                        filecontent[z-1] = filecontent[z-1].replace(content[1], n_name)
+                    else:
+                        # construct m3u-tag line and add it to current line
+                        m3uline = "#EXTINF:-1,%s\n" % (n_name)
+                        filecontent[z] = m3uline + filecontent[z]
+                else:
+                    # construct m3u-tag line and add it to current line
+                    m3uline = "#EXTINF:-1,%s\n" % (n_name)
+                    filecontent[z] = m3uline + filecontent[z]        
+
+        strf = open(content[2], "w")
+        # write content back to file
+        for fileline in filecontent:
+            print fileline
+            strf.write(fileline + "\n")
+        strf.close()
+                
+        pass
+
     print "edit"
 
 # This is a function which does nothing. Do not alter this, since it is
@@ -255,7 +334,10 @@ def menu(items, name=""):
     wahl = raw_input()
     wahl = int(wahl) - 1
     try:
-        if len(items[wahl]) == 2:
+        if len(items[wahl]) == 1:
+            # note: wahl is zero based
+            return wahl
+        elif len(items[wahl]) == 2:
             items[wahl][1]()
         elif len(items[wahl]) == 3:
             items[wahl][1](items[wahl][2])
@@ -290,7 +372,7 @@ if __name__ == "__main__":
     while(True):
         items = [ [ "Start listening", viewStations, listen ],
                   [ "Add station", addStation],
-                  [ "Edit station", editStation],
+                  [ "Edit station", viewStations, edit ],
                   [ "Remove station", viewStations, remove ],
                   [ "Exit", sys.exit, 0] ]
         menu(items, "Mainmenu")
